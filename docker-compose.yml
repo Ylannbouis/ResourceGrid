@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: resourcegrid-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resourcegrid
+      POSTGRES_PASSWORD: resourcegrid
+      POSTGRES_DB: resourcegrid
+    ports:
+      - "5433:5432"
+    volumes:
+      - resourcegrid_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resourcegrid"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  resourcegrid_pgdata:

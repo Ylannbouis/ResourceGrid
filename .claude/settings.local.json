@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -v)",
+      "Bash(echo \"pnpm: $\\(pnpm -v 2>/dev/null || echo MISSING\\)\")",
+      "Bash(npm -v)",
+      "Bash(echo \"npm: $\\(npm -v 2>/dev/null || echo MISSING\\)\")",
+      "Bash(docker -v)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter @resourcegrid/api prisma generate)",
+      "Bash(pnpm exec *)",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "Bash(lsof -nP -iTCP:5432 -sTCP:LISTEN)",
+      "Bash(PGPASSWORD=resourcegrid psql -h localhost -p 5432 -U resourcegrid -d resourcegrid -c '\\\\conninfo')",
+      "Bash(node dist/main.js)",
+      "Bash(echo \"started api pid $!\")",
+      "Read(//tmp/**)",
+      "Bash(node_modules/.bin/next start *)",
+      "Bash(echo \"web pid $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/manifest.json)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/icon.svg)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/sw.js)",
+      "Bash(pkill -f \"dist/main.js\")",
+      "Bash(pkill -f \"next start -p 3000\")",
+      "Bash(rm -f /tmp/rg-sock.cjs /tmp/rg-socket-test.mjs /tmp/rg-events.log /tmp/rg-api.log /tmp/rg-web.log)"
+    ]
+  }
+}

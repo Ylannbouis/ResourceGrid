@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PinType {
+  OFFER
+  NEED
+}
+
+enum PinStatus {
+  OPEN
+  CLAIMED
+  RESOLVED
+}
+
+model Pin {
+  id          String    @id @default(cuid())
+  type        PinType
+  category    String
+  title       String
+  description String?
+  lat         Float
+  lng         Float
+  status      PinStatus @default(OPEN)
+  contact     String?
+  // Secret token returned once to the creator; proves anonymous ownership.
+  // Stripped from every public payload and broadcast.
+  ownerToken  String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, expiresAt])
+  // For scale, lat/lng filtering would move to PostGIS (geography + GiST index).
+  @@index([lat, lng])
+}

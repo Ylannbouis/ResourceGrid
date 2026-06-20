@@ -1,0 +1,20 @@
+{
+  "name": "resourcegrid",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.2.2",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @resourcegrid/api prisma migrate dev",
+    "db:generate": "pnpm --filter @resourcegrid/api prisma generate"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.0"
+  }
+}
