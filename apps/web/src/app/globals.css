@@ -25,6 +25,15 @@ body {
   background: #e2e8f0;
 }
 
+/* Cursor: default on hover, 4-arrow "move" only while panning — Google Maps style. */
+.leaflet-grab {
+  cursor: default;
+}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-container {
+  cursor: move;
+}
+
 /* Tidy, branded Leaflet popups that match our card styling. */
 .leaflet-popup-content-wrapper {
   @apply rounded-2xl shadow-card;
@@ -36,18 +45,18 @@ body {
 
 /* Color-coded map markers driven by status tokens. */
 .rg-marker {
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 2.15rem;
+  height: 2.15rem;
   border-radius: 9999px 9999px 9999px 2px;
   transform: rotate(45deg);
   border: 2px solid white;
-  box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.5);
+  box-shadow: 0 3px 8px -1px rgba(15, 23, 42, 0.55);
   display: grid;
   place-items: center;
 }
 .rg-marker > span {
   transform: rotate(-45deg);
-  font-size: 0.8rem;
+  font-size: 1.05rem;
   line-height: 1;
 }
 .rg-marker--offer {
@@ -55,7 +64,31 @@ body {
 }
 .rg-marker--need {
   background: #e11d48;
+  transform-origin: center;
+  /* Pulses in size and color to grab attention (see keyframes below). */
+  animation: rg-need-pulse 1.4s ease-in-out infinite;
 }
 .rg-marker--claimed {
   background: #d97706;
+}
+
+/* 'Need help' markers pulse in size and color. Scale starts/ends at 1, so they
+   never shrink below the base marker size — only grow on the upbeat. */
+@keyframes rg-need-pulse {
+  0%,
+  100% {
+    transform: rotate(45deg) scale(1);
+    background-color: #e11d48;
+    box-shadow: 0 3px 8px -1px rgba(225, 29, 72, 0.5);
+  }
+  50% {
+    transform: rotate(45deg) scale(1.22);
+    background-color: #ff4d6d;
+    box-shadow: 0 4px 16px 0 rgba(255, 77, 109, 0.75);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg-marker--need {
+    animation: none;
+  }
 }

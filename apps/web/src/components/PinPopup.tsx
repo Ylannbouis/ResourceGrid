@@ -62,7 +62,7 @@ export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) 
           <button
             disabled={busy}
             onClick={() => run(() => claimPin(pin.id))}
-            className="rounded-lg bg-claimed px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-md bg-claimed px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             Claim this
           </button>
@@ -73,7 +73,7 @@ export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) 
             <button
               disabled={busy}
               onClick={() => run(() => resolvePin(pin.id, token!))}
-              className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               Mark resolved
             </button>
@@ -85,7 +85,7 @@ export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) 
                   forgetOwnership(pin.id);
                 })
               }
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 disabled:opacity-50"
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 disabled:opacity-50"
             >
               Delete
             </button>

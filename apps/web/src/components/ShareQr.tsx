@@ -29,7 +29,7 @@ export function ShareQr({ onClose }: { onClose: () => void }) {
         </div>
         <button
           onClick={onClose}
-          className="mt-5 w-full rounded-xl bg-brand py-2.5 font-semibold text-white"
+          className="mt-5 w-full rounded-md bg-brand py-2.5 font-semibold text-white"
         >
           Done
         </button>

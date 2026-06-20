@@ -4,56 +4,43 @@ import { useState } from "react";
 import {
   CATEGORIES,
   PinType,
-  createPinSchema,
-  type OwnedPin,
+  pinDetailsSchema,
+  type PinDetailsInput,
 } from "@resourcegrid/shared";
-import { createPin } from "@/lib/api";
-import { rememberOwnership } from "@/lib/ownership";
 import { categoryIcon, categoryLabel, TYPE_LABEL } from "@/lib/pin-visuals";
-import type { LatLng } from "./MapView";
 
 interface CreateSheetProps {
   type: PinType;
-  pos: LatLng;
-  onCreated: (pin: OwnedPin) => void;
+  onProceed: (details: PinDetailsInput) => void;
   onCancel: () => void;
 }
 
-export function CreateSheet({ type, pos, onCreated, onCancel }: CreateSheetProps) {
+/**
+ * Step 1 of creating a pin: collect the details. Submitting hands the validated
+ * details up to the parent, which then lets the user place the pin on the map.
+ */
+export function CreateSheet({ type, onProceed, onCancel }: CreateSheetProps) {
   const isOffer = type === PinType.OFFER;
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async () => {
+  const submit = () => {
     setError(null);
-    const candidate = {
+    const parsed = pinDetailsSchema.safeParse({
       type,
       category,
       title: title.trim(),
       description: description.trim() || undefined,
       contact: contact.trim() || undefined,
-      lat: pos.lat,
-      lng: pos.lng,
-    };
-    const parsed = createPinSchema.safeParse(candidate);
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Please check the form");
       return;
     }
-    setBusy(true);
-    try {
-      const pin = await createPin(parsed.data);
-      rememberOwnership(pin.id, pin.ownerToken);
-      onCreated(pin);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not post pin");
-    } finally {
-      setBusy(false);
-    }
+    onProceed(parsed.data);
   };
 
   const accent = isOffer ? "bg-offer" : "bg-need";
@@ -70,7 +57,7 @@ export function CreateSheet({ type, pos, onCreated, onCancel }: CreateSheetProps
             {TYPE_LABEL[type]}
           </h2>
           <span className="text-xs text-slate-400">
-            Tap the map or drag the pin to adjust
+            Add details, then place it on the map
           </span>
         </div>
 
@@ -82,7 +69,7 @@ export function CreateSheet({ type, pos, onCreated, onCancel }: CreateSheetProps
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                 category === c
                   ? "bg-brand text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -125,16 +112,15 @@ export function CreateSheet({ type, pos, onCreated, onCancel }: CreateSheetProps
         <div className="mt-5 flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 font-semibold text-slate-600"
+            className="flex-1 rounded-md border border-slate-200 py-2.5 font-semibold text-slate-600"
           >
             Cancel
           </button>
           <button
-            disabled={busy}
             onClick={submit}
-            className={`flex-[2] rounded-xl py-2.5 font-semibold text-white disabled:opacity-50 ${accent}`}
+            className={`flex-[2] rounded-md py-2.5 font-semibold text-white ${accent}`}
           >
-            {busy ? "Posting…" : "Post to map"}
+            Choose location →
           </button>
         </div>
       </div>

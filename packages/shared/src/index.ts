@@ -49,6 +49,10 @@ export const createPinSchema = z.object({
 });
 export type CreatePinInput = z.infer<typeof createPinSchema>;
 
+/** Pin details captured in the form, before the location is placed on the map. */
+export const pinDetailsSchema = createPinSchema.omit({ lat: true, lng: true });
+export type PinDetailsInput = z.infer<typeof pinDetailsSchema>;
+
 /** Payload to edit a pin (owner only). All fields optional. */
 export const updatePinSchema = z
   .object({

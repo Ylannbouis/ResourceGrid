@@ -23,6 +23,7 @@ interface MapViewProps {
   pins: Pin[];
   center: LatLng;
   draft: LatLng | null;
+  placing: boolean;
   onDraftMove: (pos: LatLng) => void;
   onAction: () => void;
 }
@@ -35,17 +36,17 @@ function pinIcon(pin: Pin): L.DivIcon {
     html: `<div class="rg-marker rg-marker--${variant}"><span>${categoryIcon(
       pin.category,
     )}</span></div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 24],
-    popupAnchor: [0, -22],
+    iconSize: [34, 34],
+    iconAnchor: [17, 31],
+    popupAnchor: [0, -30],
   });
 }
 
 const draftIcon = L.divIcon({
   className: "",
   html: `<div class="rg-marker rg-marker--claimed animate-bounce"><span>📌</span></div>`,
-  iconSize: [26, 26],
-  iconAnchor: [13, 24],
+  iconSize: [34, 34],
+  iconAnchor: [17, 31],
 });
 
 /** Recenters the map when geolocation resolves to a new center. */
@@ -77,6 +78,7 @@ export default function MapView({
   pins,
   center,
   draft,
+  placing,
   onDraftMove,
   onAction,
 }: MapViewProps) {
@@ -104,7 +106,7 @@ export default function MapView({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Recenter center={center} />
-      <DraftPlacer active={draft !== null} onPlace={onDraftMove} />
+      <DraftPlacer active={placing} onPlace={onDraftMove} />
       {markers}
       {draft && (
         <Marker
