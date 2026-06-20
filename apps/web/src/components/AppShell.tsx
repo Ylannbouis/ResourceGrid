@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PinType } from "@resourcegrid/shared";
 import { fetchPins } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
-import { selectPinList, usePinStore } from "@/lib/store";
+import { usePinStore } from "@/lib/store";
 import { Header } from "./Header";
 import { Legend } from "./Legend";
 import { Map } from "./Map";
@@ -16,7 +16,11 @@ import type { LatLng } from "./MapView";
 const FALLBACK_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 
 export function AppShell() {
-  const pins = usePinStore(selectPinList);
+  // Subscribe to the stable `pins` record reference; derive the array with useMemo.
+  // Selecting `Object.values(...)` directly would return a new array each render and
+  // send useSyncExternalStore into an infinite update loop (React error #185).
+  const pinsMap = usePinStore((s) => s.pins);
+  const pins = useMemo(() => Object.values(pinsMap), [pinsMap]);
   const setAll = usePinStore((s) => s.setAll);
 
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);

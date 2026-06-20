@@ -24,7 +24,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/sw.js)",
       "Bash(pkill -f \"dist/main.js\")",
       "Bash(pkill -f \"next start -p 3000\")",
-      "Bash(rm -f /tmp/rg-sock.cjs /tmp/rg-socket-test.mjs /tmp/rg-events.log /tmp/rg-api.log /tmp/rg-web.log)"
+      "Bash(rm -f /tmp/rg-sock.cjs /tmp/rg-socket-test.mjs /tmp/rg-events.log /tmp/rg-api.log /tmp/rg-web.log)",
+      "Bash(echo \"=== tsc exit $? ===\")"
     ]
   }
 }
