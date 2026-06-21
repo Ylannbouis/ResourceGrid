@@ -115,6 +115,29 @@ export interface OwnedPin extends Pin {
 /** Header used to prove anonymous ownership on mutations. */
 export const OWNER_TOKEN_HEADER = "x-owner-token";
 
+/**
+ * Result of AI voice triage: a spoken request transcribed (Deepgram) and parsed (Claude)
+ * into a structured pin, with the spoken location geocoded. `details` matches the shape
+ * produced by `pinDetailsSchema` so it drops straight into a create.
+ */
+export const voiceTriageResultSchema = z.object({
+  transcript: z.string(),
+  details: z.object({
+    type: z.nativeEnum(PinType),
+    category: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    contact: z.string().nullable(),
+    priority: z.nativeEnum(PinPriority),
+  }),
+  location: z.object({ lat, lng }),
+  /** false ⇒ no usable spoken location; fell back to the device location / map center. */
+  geocoded: z.boolean(),
+  /** What the user said about where they are (may be empty). */
+  locationText: z.string(),
+});
+export type VoiceTriageResult = z.infer<typeof voiceTriageResultSchema>;
+
 /** Socket.IO event names broadcast by the API. */
 export const SocketEvents = {
   PinCreated: "pin:created",

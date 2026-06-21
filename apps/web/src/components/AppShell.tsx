@@ -5,8 +5,14 @@ import {
   PinType,
   type CreatePinInput,
   type PinDetailsInput,
+  type VoiceTriageResult,
 } from "@resourcegrid/shared";
-import { createPin, fetchPins, flushQueue } from "@/lib/api";
+import {
+  createPin,
+  fetchPins,
+  fetchVoiceStatus,
+  flushQueue,
+} from "@/lib/api";
 import { queueCount, readCachedPins } from "@/lib/offline";
 import { rememberOwnership } from "@/lib/ownership";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
@@ -18,6 +24,7 @@ import { Map } from "./Map";
 import { CreateSheet } from "./CreateSheet";
 import { ResponderPanel } from "./ResponderPanel";
 import { ShareQr } from "./ShareQr";
+import { VoiceButton } from "./VoiceButton";
 import type { LatLng } from "./MapView";
 
 // Sensible fallback center until geolocation resolves (San Francisco).
@@ -27,6 +34,7 @@ export function AppShell() {
   const pinsMap = usePinStore((s) => s.pins);
   const pins = useMemo(() => Object.values(pinsMap), [pinsMap]);
   const setAll = usePinStore((s) => s.setAll);
+  const upsert = usePinStore((s) => s.upsert);
 
   const connected = usePinStore((s) => s.connected);
 
@@ -36,6 +44,8 @@ export function AppShell() {
   const [responderMode, setResponderMode] = useState(false);
   const [online, setOnline] = useState(true);
   const [queued, setQueued] = useState(0);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceToast, setVoiceToast] = useState<string | null>(null);
 
   // Pin creation is two steps:
   //   1. pendingType set, details null  → fill out the form
@@ -99,8 +109,39 @@ export function AppShell() {
     );
   }, []);
 
+  // Is AI voice triage configured on the backend? (gates the mic button)
+  useEffect(() => {
+    fetchVoiceStatus()
+      .then((s) => setVoiceEnabled(s.enabled))
+      .catch(() => setVoiceEnabled(false));
+  }, []);
+
   // Responder Mode: fly the map to a queued request.
   const focusPin = (pin: ClientPin) => setCenter({ lat: pin.lat, lng: pin.lng });
+
+  // Voice triage → auto-drop the parsed pin (no confirmation step).
+  const onVoiceResult = async (result: VoiceTriageResult) => {
+    try {
+      const candidate: CreatePinInput = {
+        ...result.details,
+        description: result.details.description ?? undefined,
+        contact: result.details.contact ?? undefined,
+        lat: result.location.lat,
+        lng: result.location.lng,
+      };
+      const pin = await createPin(candidate);
+      rememberOwnership(pin.id, pin.ownerToken);
+      upsert(pin); // instant feedback (socket broadcast also arrives)
+      setCenter(result.location);
+      setVoiceToast(`“${result.transcript}” → ${result.details.title}`);
+      window.setTimeout(() => setVoiceToast(null), 6000);
+    } catch (e) {
+      setVoiceToast(
+        e instanceof Error ? e.message : "Couldn't drop the voice pin.",
+      );
+      window.setTimeout(() => setVoiceToast(null), 6000);
+    }
+  };
 
   const startDraft = (type: PinType) => {
     setPendingType(type);
@@ -173,9 +214,22 @@ export function AppShell() {
         />
       )}
 
-      {/* Primary actions — big, one-handed tap targets. */}
+      {/* Voice triage result toast. */}
+      {voiceToast && (
+        <div className="pointer-events-none absolute inset-x-0 top-16 z-[1400] flex justify-center px-4">
+          <div className="pointer-events-auto max-w-md rounded-2xl bg-slate-900/90 px-4 py-2.5 text-center text-sm font-medium text-white shadow-card backdrop-blur">
+            {voiceToast}
+          </div>
+        </div>
+      )}
+
+      {/* Primary actions — giant mic button (AI voice triage) over Need/Offer. */}
       {pendingType === null && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex justify-center gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex flex-col items-center gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {voiceEnabled && (
+            <VoiceButton location={userLocation} onResult={onVoiceResult} />
+          )}
+          <div className="flex w-full justify-center gap-3">
           <button
             onClick={() => startDraft(PinType.NEED)}
             className="group pointer-events-auto flex flex-1 max-w-[12rem] items-center justify-center gap-2 rounded-md bg-gradient-to-b from-rose-500 to-rose-600 py-3.5 text-base font-bold tracking-wide text-white shadow-lg shadow-rose-900/30 ring-1 ring-inset ring-white/25 transition duration-150 hover:from-rose-400 hover:to-rose-600 hover:shadow-rose-900/40 active:scale-95"
@@ -194,6 +248,7 @@ export function AppShell() {
             </span>
             Offer
           </button>
+          </div>
         </div>
       )}
 

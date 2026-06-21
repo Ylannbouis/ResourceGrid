@@ -6,6 +6,7 @@ import {
   type OwnedPin,
   type Pin,
   type UpdatePinInput,
+  type VoiceTriageResult,
 } from "@resourcegrid/shared";
 import { clearQueue, enqueue, readQueue } from "./offline";
 import { forgetOwnership, rememberOwnership } from "./ownership";
@@ -29,6 +30,36 @@ const isOffline = (): boolean =>
 
 export async function fetchPins(): Promise<Pin[]> {
   return handle<Pin[]>(await fetch(`${base}/pins`, { cache: "no-store" }));
+}
+
+// ---- AI Voice Triage --------------------------------------------------------
+
+/** Whether the backend has both provider keys configured (gates the mic button). */
+export async function fetchVoiceStatus(): Promise<{ enabled: boolean }> {
+  try {
+    return await handle<{ enabled: boolean }>(
+      await fetch(`${base}/voice/status`, { cache: "no-store" }),
+    );
+  } catch {
+    return { enabled: false };
+  }
+}
+
+/** Upload recorded audio; backend transcribes, extracts, and geocodes it. */
+export async function triageVoice(
+  blob: Blob,
+  loc?: { lat: number; lng: number },
+): Promise<VoiceTriageResult> {
+  const form = new FormData();
+  form.append("audio", blob, "voice.webm");
+  if (loc) {
+    form.append("lat", String(loc.lat));
+    form.append("lng", String(loc.lng));
+  }
+  // No Content-Type header — the browser sets the multipart boundary.
+  return handle<VoiceTriageResult>(
+    await fetch(`${base}/voice/triage`, { method: "POST", body: form }),
+  );
 }
 
 // ---- Network primitives (always hit the server) -----------------------------

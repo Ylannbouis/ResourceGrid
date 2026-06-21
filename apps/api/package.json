@@ -13,6 +13,8 @@
     "prisma": "prisma"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@deepgram/sdk": "^5.4.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",

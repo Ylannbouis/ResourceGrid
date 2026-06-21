@@ -48,7 +48,10 @@ by BOTH apps. Its `package.json` `main` points at `src/index.ts` (raw TS, no bui
 the web app consumes it via `transpilePackages` in `next.config.mjs`, and the API via Jest's
 `moduleNameMapper`. Key exports: `createPinSchema` / `updatePinSchema` / `pinDetailsSchema`
 (form-only, omits lat/lng) / `bboxSchema`; `Pin` (public) vs `OwnedPin` (adds `ownerToken`);
-`SocketEvents`; `OWNER_TOKEN_HEADER`. Add new fields/validation here, not in the apps.
+the `PinType` / `PinStatus` / `PinPriority` enums and `CATEGORIES`; `SocketEvents`;
+`OWNER_TOKEN_HEADER`; `voiceTriageResultSchema` / `VoiceTriageResult` (voice feature contract).
+A `Pin` carries `priority` (triage) and `confirmations` (corroboration count) in addition to the
+obvious fields. Add new fields/validation here, not in the apps.
 
 ### Anonymous ownership model (central to the whole app)
 On create, the API mints a random `ownerToken`, persists it, and returns it **once** inside
@@ -57,7 +60,9 @@ On create, the API mints a random `ownerToken`, persists it, and returns it **on
   creator ever holds it (`pins.mapper.ts` `toPublicPin` vs `toOwnedPin`).
 - Mutations (PATCH / resolve / DELETE) require the token via the `x-owner-token` header and a
   constant-time compare in `PinsService.assertOwner`.
-- **Claim is intentionally token-free** (anyone can take an offer).
+- **Claim and confirm are intentionally token-free** — anyone can take an offer
+  (`POST /pins/:id/claim`) or corroborate a report (`POST /pins/:id/confirm`). Per-device dedupe
+  for confirm is client-side (`apps/web/src/lib/confirmations.ts`), mirroring `ownership.ts`.
 
 ### Data flow / realtime
 REST seeds and mutates; Socket.IO only carries deltas. `PinsService` performs the DB write,
@@ -69,12 +74,40 @@ then calls `PinsGateway.emit*` to broadcast `pin:created|updated|resolved|delete
 Pin lifecycle: `OPEN → CLAIMED` (offers only) / `→ RESOLVED`, plus TTL auto-expiry
 (`PIN_TTL_HOURS`, default 24). **Resolved pins are dropped from the active map** — the store's
 `upsert` deletes any pin whose status becomes `RESOLVED`, and the API excludes resolved/expired
-pins from `GET /pins`.
+pins from `GET /pins` (which returns triage order: `priority asc`, then `createdAt desc`).
+Confirm/priority changes broadcast via the existing `pin:updated` event — no new socket events.
 
 ### Pin creation is a two-step flow
 `AppShell` drives it: tap Need/Offer → `CreateSheet` collects details (validated with
-`pinDetailsSchema`) → on submit, enter **placement mode** (`placing`) where tapping/dragging the
-map sets the location → confirm calls `createPin`. Location is chosen on the map, not auto-placed.
+`pinDetailsSchema`, incl. an urgency selector for NEED pins) → on submit, enter **placement mode**
+(`placing`) where tapping/dragging the map sets the location → confirm calls `createPin`. Location
+is chosen on the map, not auto-placed. (The voice feature bypasses this and auto-drops — see below.)
+
+### Triage priority + Responder Mode
+NEED pins carry a `PinPriority` (CRITICAL/URGENT/STANDARD, SALT-style). Markers re-color/pulse by
+urgency via `priorityClass` in `apps/web/src/lib/pin-visuals.ts` + `.rg-marker--prio-*` in
+`globals.css`. `ResponderPanel.tsx` is a slide-in triage queue (open NEED pins sorted by priority
+then age, click-to-fly reusing `AppShell`'s `center` state), toggled from `Header`.
+
+### Anonymous corroboration ("verified by N")
+`PinsService.confirm` increments `confirmations` and broadcasts. ≥2 (`VERIFY_THRESHOLD` in
+`pin-visuals.ts`) renders a "✓ Verified" badge (`PinPopup`, marker, `ResponderPanel` filter).
+True server-side dedupe would need a separate table — out of scope (see TODO in the service).
+
+### Offline-first (PWA)
+`apps/web/src/lib/offline.ts` keeps a localStorage **snapshot** of pins (seeds the store instantly
+on load, even offline) and a **pending-mutation queue**. When offline, `createPin`/`claimPin`/
+`confirmPin` in `api.ts` enqueue + optimistically update the store (`ClientPin.pending`); `AppShell`
+calls `flushQueue()` on reconnect (window `online` event + socket `connect`), which replays them and
+`reconcile`s temp ids → real ids. The blue "you are here" dot (`.rg-me`) tracks device geolocation.
+
+### AI Voice Triage (`apps/api/src/voice/`)
+Tap the mic (`VoiceButton.tsx`) → record audio → `POST /api/voice/triage` (multipart). `VoiceService`
+chains **Deepgram** STT (`nova-3`) → **Claude Haiku 4.5** structured extraction → OpenStreetMap
+**Nominatim** geocoding of the spoken location (falls back to device location). The web client
+**auto-drops** the parsed pin via the normal `createPin` path. Gated by `GET /api/voice/status`
+(`{ enabled }` = both keys present); the mic button is hidden when disabled. Requires
+`DEEPGRAM_API_KEY` + `ANTHROPIC_API_KEY` in `apps/api/.env`.
 
 ## Gotchas specific to this repo
 
@@ -88,7 +121,21 @@ map sets the location → confirm calls `createPin`. Location is chosen on the m
   — hard-refresh or clear site data. It deliberately bypasses `/api`.
 - **Postgres runs on host port 5433** (5432 was taken in the dev environment). `DATABASE_URL`
   in `apps/api/.env` and the `docker-compose.yml` mapping reflect this.
+- **Prisma env loading goes through `apps/api/prisma.config.ts`** — it calls
+  `process.loadEnvFile(path.join(__dirname, ".env"))` so both the CLI and the VSCode Prisma
+  extension resolve `env("DATABASE_URL")` in this monorepo layout. With the config present, Prisma
+  prints "Prisma config detected, skipping environment variable loading" and does NOT auto-load
+  `.env` — the config does it explicitly. App **runtime** env (Nest) is separate from this.
+- **Env keys**: `apps/api/.env` holds `DATABASE_URL`, `PORT`, `WEB_ORIGIN`, `PIN_TTL_HOURS`, and
+  the optional `DEEPGRAM_API_KEY` / `ANTHROPIC_API_KEY` (voice triage; blank ⇒ feature disabled).
+  Nest reads all of these straight from `process.env` (no `@nestjs/config`).
 - **Styling palette is centralized** in `apps/web/tailwind.config.ts` tokens (`brand`/`offer`/
   `need`/`claimed`); map markers in `globals.css` (`.rg-marker--*`) reuse the same colors. Keep
   marker `iconSize`/`iconAnchor` in `MapView.tsx` in sync with the `.rg-marker` CSS size.
 - API uses a global `api` prefix (`/api/...`) and CORS/socket origins from `WEB_ORIGIN`.
+- **`tsc --noEmit` is the type gate, not Jest.** API Jest runs ts-jest with `isolatedModules`
+  (transpile-only) — type-checking the heavy `zod/v4` chain per worker OOMs it. Always run
+  `pnpm exec tsc --noEmit` separately. Web ESLint isn't configured (`next lint` prompts for setup).
+- **The Anthropic structured-output helper needs a zod v4 schema.** zod 3.25 ships both; import
+  `zod/v4` (not the project's default `zod`) when building schemas passed to `zodOutputFormat`
+  (see `voice.service.ts`).
