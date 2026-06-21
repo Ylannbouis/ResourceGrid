@@ -18,24 +18,34 @@ enum PinStatus {
   RESOLVED
 }
 
+enum PinPriority {
+  CRITICAL
+  URGENT
+  STANDARD
+}
+
 model Pin {
-  id          String    @id @default(cuid())
-  type        PinType
-  category    String
-  title       String
-  description String?
-  lat         Float
-  lng         Float
-  status      PinStatus @default(OPEN)
-  contact     String?
+  id            String      @id @default(cuid())
+  type          PinType
+  category      String
+  title         String
+  description   String?
+  lat           Float
+  lng           Float
+  status        PinStatus   @default(OPEN)
+  priority      PinPriority @default(STANDARD)
+  // Count of independent anonymous corroborations (see PinsService.confirm).
+  confirmations Int         @default(0)
+  contact       String?
   // Secret token returned once to the creator; proves anonymous ownership.
   // Stripped from every public payload and broadcast.
-  ownerToken  String
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  ownerToken    String
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([status, expiresAt])
+  @@index([priority, status])
   // For scale, lat/lng filtering would move to PostGIS (geography + GiST index).
   @@index([lat, lng])
 }

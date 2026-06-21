@@ -1,16 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { PinStatus, PinType, type Pin } from "@resourcegrid/shared";
-import { claimPin, deletePin, resolvePin } from "@/lib/api";
+import { PinPriority, PinStatus, PinType, type Pin } from "@resourcegrid/shared";
+import { claimPin, confirmPin, deletePin, resolvePin } from "@/lib/api";
+import { hasConfirmed, rememberConfirmation } from "@/lib/confirmations";
 import { forgetOwnership, getOwnerToken } from "@/lib/ownership";
-import { categoryIcon, categoryLabel, TYPE_LABEL } from "@/lib/pin-visuals";
+import {
+  categoryIcon,
+  categoryLabel,
+  isVerified,
+  PRIORITY_LABEL,
+  TYPE_LABEL,
+  VERIFY_THRESHOLD,
+} from "@/lib/pin-visuals";
 
 export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedHere, setConfirmedHere] = useState(() => hasConfirmed(pin.id));
   const token = getOwnerToken(pin.id);
   const owned = Boolean(token);
+  const verified = isVerified(pin);
+  const showPriority =
+    pin.type === PinType.NEED && pin.priority !== PinPriority.STANDARD;
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -45,8 +57,33 @@ export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) 
       </div>
 
       <h3 className="mt-1 text-base font-semibold text-slate-800">{pin.title}</h3>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {showPriority && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white ${
+              pin.priority === PinPriority.CRITICAL ? "bg-need" : "bg-claimed"
+            }`}
+          >
+            {PRIORITY_LABEL[pin.priority]}
+          </span>
+        )}
+        {verified ? (
+          <span className="rounded-full bg-offer-soft px-2 py-0.5 text-[11px] font-bold text-offer">
+            ✓ Verified by {pin.confirmations}
+          </span>
+        ) : (
+          pin.confirmations > 0 && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+              {pin.confirmations} confirmation
+              {pin.confirmations === 1 ? "" : "s"}
+            </span>
+          )
+        )}
+      </div>
+
       {pin.description && (
-        <p className="mt-1 text-sm text-slate-600">{pin.description}</p>
+        <p className="mt-1.5 text-sm text-slate-600">{pin.description}</p>
       )}
       {pin.contact && (
         <p className="mt-2 text-sm">
@@ -66,6 +103,30 @@ export function PinPopup({ pin, onAction }: { pin: Pin; onAction: () => void }) 
           >
             Claim this
           </button>
+        )}
+
+        {/* Token-free corroboration — anyone nearby can vouch a report is real. */}
+        {!owned && !confirmedHere && (
+          <button
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                await confirmPin(pin.id);
+                rememberConfirmation(pin.id);
+                setConfirmedHere(true);
+              })
+            }
+            className="rounded-md border border-offer/40 bg-offer-soft px-3 py-1.5 text-sm font-semibold text-offer disabled:opacity-50"
+          >
+            ✓ I can confirm this
+          </button>
+        )}
+        {confirmedHere && !verified && (
+          <span className="self-center text-[11px] text-slate-400">
+            Thanks — {VERIFY_THRESHOLD - pin.confirmations > 0
+              ? `${VERIFY_THRESHOLD - pin.confirmations} more to verify`
+              : "confirmed"}
+          </span>
         )}
 
         {owned && (

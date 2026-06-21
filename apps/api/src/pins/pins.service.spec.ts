@@ -1,5 +1,5 @@
 import { ForbiddenException } from "@nestjs/common";
-import { PinStatus, PinType } from "@resourcegrid/shared";
+import { PinPriority, PinStatus, PinType } from "@resourcegrid/shared";
 import { PinsService } from "./pins.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { PinsGateway } from "./pins.gateway";
@@ -13,6 +13,8 @@ type DbPin = {
   lat: number;
   lng: number;
   status: PinStatus;
+  priority: PinPriority;
+  confirmations: number;
   contact: string | null;
   ownerToken: string;
   expiresAt: Date;
@@ -31,6 +33,8 @@ function makePin(overrides: Partial<DbPin> = {}): DbPin {
     lat: 37.77,
     lng: -122.42,
     status: PinStatus.OPEN,
+    priority: PinPriority.STANDARD,
+    confirmations: 0,
     contact: null,
     ownerToken: "secret-token",
     expiresAt: new Date(now.getTime() + 3600_000),
@@ -73,6 +77,7 @@ describe("PinsService", () => {
       type: PinType.OFFER,
       category: "water",
       title: "Clean water to share",
+      priority: PinPriority.STANDARD,
       lat: 37.77,
       lng: -122.42,
     });
@@ -119,6 +124,51 @@ describe("PinsService", () => {
     const result = await service.claim("pin_1");
     expect(result.status).toBe(PinStatus.CLAIMED);
     expect(gateway.emitUpdated).toHaveBeenCalled();
+  });
+
+  it("carries the triage priority through create and broadcasts it", async () => {
+    const created = makePin({
+      type: PinType.NEED,
+      priority: PinPriority.CRITICAL,
+    });
+    prisma.pin.create.mockResolvedValue(created);
+
+    const result = await service.create({
+      type: PinType.NEED,
+      category: "medical",
+      title: "Critical injury, needs transport",
+      priority: PinPriority.CRITICAL,
+      lat: 37.77,
+      lng: -122.42,
+    });
+
+    expect(result.priority).toBe(PinPriority.CRITICAL);
+    expect(gateway.emitUpdated).not.toHaveBeenCalled();
+    expect(gateway.emitCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: PinPriority.CRITICAL }),
+    );
+  });
+
+  it("confirms a pin token-free, increments the count, and broadcasts", async () => {
+    prisma.pin.findUnique.mockResolvedValue(makePin());
+    prisma.pin.update.mockResolvedValue(makePin({ confirmations: 1 }));
+
+    const result = await service.confirm("pin_1");
+
+    expect(prisma.pin.update).toHaveBeenCalledWith({
+      where: { id: "pin_1" },
+      data: { confirmations: { increment: 1 } },
+    });
+    expect(result.confirmations).toBe(1);
+    expect(gateway.emitUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmations: 1 }),
+    );
+  });
+
+  it("rejects confirming a pin that does not exist", async () => {
+    prisma.pin.findUnique.mockResolvedValue(null);
+    await expect(service.confirm("missing")).rejects.toBeTruthy();
+    expect(prisma.pin.update).not.toHaveBeenCalled();
   });
 
   it("sweeps expired pins and broadcasts deletions", async () => {

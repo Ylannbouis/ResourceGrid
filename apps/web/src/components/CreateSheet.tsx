@@ -3,11 +3,24 @@
 import { useState } from "react";
 import {
   CATEGORIES,
+  PinPriority,
   PinType,
   pinDetailsSchema,
   type PinDetailsInput,
 } from "@resourcegrid/shared";
-import { categoryIcon, categoryLabel, TYPE_LABEL } from "@/lib/pin-visuals";
+import {
+  categoryIcon,
+  categoryLabel,
+  PRIORITY_LABEL,
+  TYPE_LABEL,
+} from "@/lib/pin-visuals";
+
+/** Triage chips, ordered most → least urgent, with their accent classes. */
+const PRIORITY_CHIPS: { value: PinPriority; active: string }[] = [
+  { value: PinPriority.CRITICAL, active: "bg-need text-white" },
+  { value: PinPriority.URGENT, active: "bg-claimed text-white" },
+  { value: PinPriority.STANDARD, active: "bg-brand text-white" },
+];
 
 interface CreateSheetProps {
   type: PinType;
@@ -25,6 +38,7 @@ export function CreateSheet({ type, onProceed, onCancel }: CreateSheetProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
+  const [priority, setPriority] = useState<PinPriority>(PinPriority.STANDARD);
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
@@ -35,6 +49,8 @@ export function CreateSheet({ type, onProceed, onCancel }: CreateSheetProps) {
       title: title.trim(),
       description: description.trim() || undefined,
       contact: contact.trim() || undefined,
+      // Offers stay STANDARD; only requests carry a triage level.
+      priority: isOffer ? PinPriority.STANDARD : priority,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Please check the form");
@@ -79,6 +95,29 @@ export function CreateSheet({ type, onProceed, onCancel }: CreateSheetProps) {
             </button>
           ))}
         </div>
+
+        {!isOffer && (
+          <>
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Urgency
+            </label>
+            <div className="mt-2 flex gap-2">
+              {PRIORITY_CHIPS.map(({ value, active }) => (
+                <button
+                  key={value}
+                  onClick={() => setPriority(value)}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition ${
+                    priority === value
+                      ? active
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {PRIORITY_LABEL[value]}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-400">
           What&apos;s the situation?

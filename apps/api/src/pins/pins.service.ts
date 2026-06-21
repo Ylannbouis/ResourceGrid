@@ -44,7 +44,8 @@ export class PinsService {
             }
           : {}),
       },
-      orderBy: { createdAt: "desc" },
+      // Triage order: CRITICAL → URGENT → STANDARD (enum order), then newest first.
+      orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
     });
     return pins.map(toPublicPin);
   }
@@ -82,6 +83,23 @@ export class PinsService {
     const pin = await this.prisma.pin.update({
       where: { id },
       data: { status: PinStatus.CLAIMED },
+    });
+    const pub = toPublicPin(pin);
+    this.gateway.emitUpdated(pub);
+    return pub;
+  }
+
+  /**
+   * Corroborate a pin. Intentionally token-free — anyone nearby can confirm a report
+   * exists. Per-device dedupe is handled client-side (localStorage), like ownership.
+   * TODO: true server-side dedupe would need a Confirmation table keyed by an anon
+   * device id; out of scope for now.
+   */
+  async confirm(id: string) {
+    await this.getOrThrow(id);
+    const pin = await this.prisma.pin.update({
+      where: { id },
+      data: { confirmations: { increment: 1 } },
     });
     const pub = toPublicPin(pin);
     this.gateway.emitUpdated(pub);

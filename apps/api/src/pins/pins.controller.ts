@@ -67,6 +67,11 @@ export class PinsController {
     return this.pins.claim(id);
   }
 
+  @Post(":id/confirm")
+  confirm(@Param("id") id: string) {
+    return this.pins.confirm(id);
+  }
+
   @Post(":id/resolve")
   resolve(
     @Param("id") id: string,

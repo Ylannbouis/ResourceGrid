@@ -6,6 +6,11 @@ const ITEMS = [
   { label: "Claimed", color: "bg-claimed" },
 ];
 
+const PRIORITY_ITEMS = [
+  { label: "Critical", color: "bg-need", pulse: true },
+  { label: "Urgent", color: "bg-claimed", pulse: false },
+];
+
 /** Small key so the color-coded map is self-explanatory at a glance. */
 export function Legend() {
   return (
@@ -16,6 +21,25 @@ export function Legend() {
           <span className="text-xs font-medium text-slate-600">{item.label}</span>
         </div>
       ))}
+      <div className="my-0.5 h-px bg-slate-100" />
+      {PRIORITY_ITEMS.map((item) => (
+        <div key={item.label} className="flex items-center gap-2">
+          <span
+            className={`h-3 w-3 rounded-full ${item.color} ${
+              item.pulse ? "animate-pulse" : ""
+            }`}
+          />
+          <span className="text-xs font-medium text-slate-600">{item.label}</span>
+        </div>
+      ))}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px]">✓</span>
+        <span className="text-xs font-medium text-slate-600">Verified</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="h-3 w-3 rounded-full border-2 border-white bg-blue-600 shadow" />
+        <span className="text-xs font-medium text-slate-600">You</span>
+      </div>
     </div>
   );
 }

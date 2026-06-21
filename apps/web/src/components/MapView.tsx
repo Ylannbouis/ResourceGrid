@@ -10,8 +10,13 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
-import type { Pin } from "@resourcegrid/shared";
-import { categoryIcon, markerVariant } from "@/lib/pin-visuals";
+import {
+  categoryIcon,
+  isVerified,
+  markerVariant,
+  priorityClass,
+} from "@/lib/pin-visuals";
+import type { ClientPin } from "@/lib/store";
 import { PinPopup } from "./PinPopup";
 
 export interface LatLng {
@@ -20,20 +25,27 @@ export interface LatLng {
 }
 
 interface MapViewProps {
-  pins: Pin[];
+  pins: ClientPin[];
   center: LatLng;
+  userLocation: LatLng | null;
   draft: LatLng | null;
   placing: boolean;
   onDraftMove: (pos: LatLng) => void;
   onAction: () => void;
 }
 
-/** Build a teardrop divIcon colored by the pin's type/status. */
-function pinIcon(pin: Pin): L.DivIcon {
-  const variant = markerVariant(pin);
+/** Build a teardrop divIcon colored by the pin's type/status, priority and trust. */
+function pinIcon(pin: ClientPin): L.DivIcon {
+  const classes = [
+    "rg-marker",
+    `rg-marker--${markerVariant(pin)}`,
+    `rg-marker--prio-${priorityClass(pin)}`,
+  ];
+  if (isVerified(pin)) classes.push("rg-marker--verified");
+  if (pin.pending) classes.push("rg-marker--pending");
   return L.divIcon({
     className: "",
-    html: `<div class="rg-marker rg-marker--${variant}"><span>${categoryIcon(
+    html: `<div class="${classes.join(" ")}"><span>${categoryIcon(
       pin.category,
     )}</span></div>`,
     iconSize: [34, 34],
@@ -47,6 +59,14 @@ const draftIcon = L.divIcon({
   html: `<div class="rg-marker rg-marker--claimed animate-bounce"><span>📌</span></div>`,
   iconSize: [34, 34],
   iconAnchor: [17, 31],
+});
+
+/** Blue "you are here" dot for the device's current location. */
+const meIcon = L.divIcon({
+  className: "",
+  html: `<div class="rg-me"></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
 /** Recenters the map when geolocation resolves to a new center. */
@@ -77,6 +97,7 @@ function DraftPlacer({
 export default function MapView({
   pins,
   center,
+  userLocation,
   draft,
   placing,
   onDraftMove,
@@ -107,6 +128,15 @@ export default function MapView({
       />
       <Recenter center={center} />
       <DraftPlacer active={placing} onPlace={onDraftMove} />
+      {userLocation && (
+        <Marker
+          position={[userLocation.lat, userLocation.lng]}
+          icon={meIcon}
+          interactive={false}
+          keyboard={false}
+          zIndexOffset={-1000}
+        />
+      )}
       {markers}
       {draft && (
         <Marker

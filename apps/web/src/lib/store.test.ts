@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { PinStatus, PinType, type Pin } from "@resourcegrid/shared";
+import {
+  PinPriority,
+  PinStatus,
+  PinType,
+  type Pin,
+} from "@resourcegrid/shared";
 import { selectPinList, usePinStore } from "./store";
 
 function pin(overrides: Partial<Pin> = {}): Pin {
@@ -11,6 +16,8 @@ function pin(overrides: Partial<Pin> = {}): Pin {
     title: "Need water",
     description: null,
     contact: null,
+    priority: PinPriority.STANDARD,
+    confirmations: 0,
     lat: 0,
     lng: 0,
     status: PinStatus.OPEN,

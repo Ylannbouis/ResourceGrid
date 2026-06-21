@@ -1,6 +1,7 @@
-// Minimal service worker for installability + an app-shell cache.
-// NOTE: this caches the shell only. True offline-first pin drafting (IndexedDB queue)
-// is intentionally out of scope for this build.
+// Service worker for installability + an app-shell cache (network-first GET, with a
+// cache fallback so the shell opens offline). Offline pin drafting is handled in the app
+// layer: a localStorage snapshot + a pending-mutation queue that flushes on reconnect
+// (see apps/web/src/lib/offline.ts and api.ts).
 const CACHE = "resourcegrid-shell-v1";
 const SHELL = ["/", "/manifest.json", "/icon.svg"];
 

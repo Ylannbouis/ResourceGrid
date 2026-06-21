@@ -16,6 +16,17 @@ export const PinStatus = {
 export type PinStatus = (typeof PinStatus)[keyof typeof PinStatus];
 
 /**
+ * Triage urgency for a request — a SALT/START-style severity signal so responders can
+ * prioritize. Offers default to STANDARD; only NEED pins surface a selector in the UI.
+ */
+export const PinPriority = {
+  CRITICAL: "CRITICAL",
+  URGENT: "URGENT",
+  STANDARD: "STANDARD",
+} as const;
+export type PinPriority = (typeof PinPriority)[keyof typeof PinPriority];
+
+/**
  * Suggested categories surfaced as quick-pick chips in the UI. `category` is stored
  * as a free string so the list can grow without a migration.
  */
@@ -44,6 +55,7 @@ export const createPinSchema = z.object({
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().max(1000).optional(),
   contact: z.string().trim().max(200).optional(),
+  priority: z.nativeEnum(PinPriority).optional().default(PinPriority.STANDARD),
   lat,
   lng,
 });
@@ -60,6 +72,7 @@ export const updatePinSchema = z
     title: z.string().trim().min(3).max(120),
     description: z.string().trim().max(1000).nullable(),
     contact: z.string().trim().max(200).nullable(),
+    priority: z.nativeEnum(PinPriority),
     lat,
     lng,
   })
@@ -83,6 +96,9 @@ export interface Pin {
   title: string;
   description: string | null;
   contact: string | null;
+  priority: PinPriority;
+  /** Count of independent anonymous corroborations. >= 2 is treated as "verified". */
+  confirmations: number;
   lat: number;
   lng: number;
   status: PinStatus;

@@ -10,6 +10,8 @@ export function toPublicPin(pin: DbPin): Pin {
     title: pin.title,
     description: pin.description,
     contact: pin.contact,
+    priority: pin.priority,
+    confirmations: pin.confirmations,
     lat: pin.lat,
     lng: pin.lng,
     status: pin.status,

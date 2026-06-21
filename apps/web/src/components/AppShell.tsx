@@ -6,15 +6,17 @@ import {
   type CreatePinInput,
   type PinDetailsInput,
 } from "@resourcegrid/shared";
-import { createPin, fetchPins } from "@/lib/api";
+import { createPin, fetchPins, flushQueue } from "@/lib/api";
+import { queueCount, readCachedPins } from "@/lib/offline";
 import { rememberOwnership } from "@/lib/ownership";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
-import { usePinStore } from "@/lib/store";
+import { usePinStore, type ClientPin } from "@/lib/store";
 import { categoryLabel, TYPE_LABEL } from "@/lib/pin-visuals";
 import { Header } from "./Header";
 import { Legend } from "./Legend";
 import { Map } from "./Map";
 import { CreateSheet } from "./CreateSheet";
+import { ResponderPanel } from "./ResponderPanel";
 import { ShareQr } from "./ShareQr";
 import type { LatLng } from "./MapView";
 
@@ -26,8 +28,14 @@ export function AppShell() {
   const pins = useMemo(() => Object.values(pinsMap), [pinsMap]);
   const setAll = usePinStore((s) => s.setAll);
 
+  const connected = usePinStore((s) => s.connected);
+
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [responderMode, setResponderMode] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [queued, setQueued] = useState(0);
 
   // Pin creation is two steps:
   //   1. pendingType set, details null  → fill out the form
@@ -40,8 +48,11 @@ export function AppShell() {
 
   const placing = pendingType !== null && details !== null;
 
-  // Seed pins over REST, then keep them live over the socket.
+  // Seed from the offline cache first (instant + works with no network), then refresh
+  // over REST and keep live over the socket.
   useEffect(() => {
+    const cached = readCachedPins();
+    if (cached.length) setAll(cached);
     fetchPins()
       .then(setAll)
       .catch(() => undefined);
@@ -49,16 +60,47 @@ export function AppShell() {
     return () => disconnectSocket();
   }, [setAll]);
 
+  // Track connectivity; flush the offline queue whenever we come back online.
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const goOnline = () => {
+      setOnline(true);
+      flushQueue().finally(() => setQueued(queueCount()));
+    };
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    // Poll the queue depth so the header badge stays current (same-tab writes don't
+    // fire the storage event).
+    const poll = setInterval(() => setQueued(queueCount()), 1500);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+      clearInterval(poll);
+    };
+  }, []);
+
+  // A fresh socket connection is also a good moment to drain anything queued.
+  useEffect(() => {
+    if (connected) flushQueue().finally(() => setQueued(queueCount()));
+  }, [connected]);
+
   // Center on the device location (best-effort).
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCenter(here);
+        setUserLocation(here);
+      },
       () => undefined,
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }, []);
+
+  // Responder Mode: fly the map to a queued request.
+  const focusPin = (pin: ClientPin) => setCenter({ lat: pin.lat, lng: pin.lng });
 
   const startDraft = (type: PinType) => {
     setPendingType(type);
@@ -107,14 +149,29 @@ export function AppShell() {
       <Map
         pins={pins}
         center={center}
+        userLocation={userLocation}
         draft={draft}
         placing={placing}
         onDraftMove={setDraft}
         onAction={() => undefined}
       />
 
-      <Header onShare={() => setShowQr(true)} />
+      <Header
+        onShare={() => setShowQr(true)}
+        responderMode={responderMode}
+        onToggleResponder={() => setResponderMode((v) => !v)}
+        online={online}
+        queued={queued}
+      />
       <Legend />
+
+      {responderMode && (
+        <ResponderPanel
+          pins={pins}
+          onFocus={focusPin}
+          onClose={() => setResponderMode(false)}
+        />
+      )}
 
       {/* Primary actions — big, one-handed tap targets. */}
       {pendingType === null && (

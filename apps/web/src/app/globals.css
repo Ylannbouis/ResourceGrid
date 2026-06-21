@@ -45,6 +45,7 @@ body {
 
 /* Color-coded map markers driven by status tokens. */
 .rg-marker {
+  position: relative;
   width: 2.15rem;
   height: 2.15rem;
   border-radius: 9999px 9999px 9999px 2px;
@@ -72,6 +73,72 @@ body {
   background: #d97706;
 }
 
+/* Triage priority on NEED pins (see pin-visuals.priorityClass). These rules follow
+   --need so they override its default pulse for critical/standard tiers.
+     standard → calm (no pulse)   urgent → default rose pulse   critical → intense pulse */
+.rg-marker--prio-standard {
+  animation: none;
+}
+.rg-marker--prio-urgent {
+  animation: rg-need-pulse 1.4s ease-in-out infinite;
+}
+.rg-marker--prio-crit {
+  background: #e11d48;
+  animation: rg-crit-pulse 0.85s ease-in-out infinite;
+}
+
+/* Verified (>= 2 corroborations): a small green check badge, counter-rotated upright. */
+.rg-marker--verified::after {
+  content: "✓";
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: #059669;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1.5px solid white;
+  transform: rotate(-45deg);
+}
+
+/* Optimistic pins awaiting sync (offline queue). */
+.rg-marker--pending {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+/* Blue "you are here" dot — distinct from the offer/need/claimed palette. */
+.rg-me {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 9999px;
+  background: #2563eb; /* blue-600 */
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.4);
+  animation: rg-me-pulse 2s ease-out infinite;
+}
+@keyframes rg-me-pulse {
+  0% {
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.4), 0 0 0 0 rgba(37, 99, 235, 0.45);
+  }
+  70% {
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.4), 0 0 0 12px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.4), 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg-me {
+    animation: none;
+  }
+}
+
 /* 'Need help' markers pulse in size and color. Scale starts/ends at 1, so they
    never shrink below the base marker size — only grow on the upbeat. */
 @keyframes rg-need-pulse {
@@ -87,8 +154,24 @@ body {
     box-shadow: 0 4px 16px 0 rgba(255, 77, 109, 0.75);
   }
 }
+/* Critical: faster, larger pulse with a wider glow to dominate the triage view. */
+@keyframes rg-crit-pulse {
+  0%,
+  100% {
+    transform: rotate(45deg) scale(1.05);
+    background-color: #e11d48;
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6);
+  }
+  50% {
+    transform: rotate(45deg) scale(1.32);
+    background-color: #ff2d55;
+    box-shadow: 0 0 0 8px rgba(255, 45, 85, 0);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .rg-marker--need {
+  .rg-marker--need,
+  .rg-marker--prio-urgent,
+  .rg-marker--prio-crit {
     animation: none;
   }
 }
